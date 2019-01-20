@@ -1,0 +1,637 @@
+#lang racket
+
+(provide tronlang)
+
+(define-namespace-anchor namespace-anchor)
+(define namespace (namespace-anchor->namespace namespace-anchor))
+
+(define tronlang-alias-list (make-hash))
+
+(define (tronlang-set-alias name value)
+  (hash-set! tronlang-alias-list name value))
+
+(define (tronlang-get-alias name)
+  (if (hash-has-key? tronlang-alias-list name)
+      (tronlang-get-alias (second (hash-ref tronlang-alias-list name)))
+      name))
+
+(define (tronlang-naming-char-convert c)
+  (case c
+    [(#\-) "$00$"]
+    [(#\+) "$01$"]
+    [(#\*) "$02$"]
+    [(#\/) "$03$"]
+    [(#\?) "$04$"]
+    [(#\\) "$05$"]
+    [(#\:) "$06$"]
+    [(#\@) "$07$"]
+    [(#\!) "$08$"]
+    [(#\<) "$09$"]
+    [(#\>) "$10$"]
+    [(#\=) "$11$"]
+    [(#\~) "$12$"]
+    [(#\&) "$13$"]
+    [(#\#) "$14$"]
+    [(#\^) "$15$"]
+    [(#\%) "$16$"]
+    [else (string c)]))
+
+(define (tronlang-naming-convert a-name)
+  (case a-name
+    (("class")
+     ("$trolang_class"))
+    (else
+     (apply string-append (map tronlang-naming-char-convert (string->list a-name))))))
+
+(define (tronlang-symbol->js-symbol a-symbol)
+  (tronlang-naming-convert (symbol->string a-symbol)))
+
+(define (tronlang-keyword->js-keyword a-keyword)
+  (let ((value (keyword->string a-keyword)))
+    (apply string-append
+           (map tronlang-naming-char-convert (string->list value)))))
+
+(define (tronlang-valid-name? a-symbol)
+  (not (member a-symbol '())))
+
+(define (tronlang-argv function-argv? syntaxes)
+  (define (iter a-list)
+    (if (empty? a-list)
+        (void)
+        (let ((current (first a-list)))
+          (if (and function-argv? (not (symbol? current)))
+              (error "Function argument must be #<symbol>")
+              (begin
+                (tronlang-single current)
+                (when (> (length a-list) 1)
+                  (display ","))
+                (iter (rest a-list)))))))
+  (display "(")
+  (when (not (empty? syntaxes))
+    (iter syntaxes))
+  (display ")"))
+
+(define (tronlang-body syntaxes)
+  (define (iter a-list)
+    (cond
+      [(empty? a-list)
+       (display "null")]
+      [else
+       (let ((current (first a-list)))
+         (if (and (list? current)
+                  (> (length current) 1)
+                  (equal? 'var (first current)))
+             (tronlang-assign (rest current))
+             (tronlang-single current)))
+       (when (> (length a-list) 1)
+         (display ",")
+         (iter (rest a-list)))]))
+  (display "(")
+  (iter syntaxes)
+  (display ")"))
+         
+(define (tronlang-call a-syntax)
+  (display "(")
+  (tronlang-single (first a-syntax))
+  (display ")")
+  (tronlang-argv #f (rest a-syntax)))
+
+(define (tronlang-func-vars a-syntax)
+  (define (iter a-list)
+    (cond
+      [(empty? a-list)
+       (void)]
+      [else
+       (let ((current (first a-list)))
+         (when (and (list? current)
+                    (> (length current) 0)
+                    (equal? 'var (first current)))
+           (begin
+             (tronlang-defvar (rest current) #f)
+             (display ";")))
+         (iter (rest a-list)))]))
+  (iter a-syntax))
+
+(define (tronlang-func-body a-syntax)
+  (tronlang-body a-syntax))
+
+(define (tronlang-defn a-syntax)
+  (display "function ")
+  (cond
+    [(symbol? (first a-syntax))
+     (if (list? (second a-syntax))
+         (begin
+           (tronlang-single (first a-syntax))
+           (tronlang-argv #t (second a-syntax))
+           (display "{")
+           (letrec ((body (rest (rest a-syntax))))
+             (tronlang-func-vars body)
+             (display "return ")
+             (tronlang-func-body body))
+           (display ";}"))
+         (error "#<def> is wrong syntax"))]
+    [else
+     (error "#<def> is wrong syntax")]))
+
+(define (tronlang-lambda a-syntax)
+  (display "function ")
+  (cond
+    [(list? (first a-syntax))
+     (tronlang-argv #t (first a-syntax))
+     (display "{")
+     (letrec ((body (rest a-syntax)))
+       (tronlang-func-vars body)
+       (display "return ")
+       (tronlang-func-body body))
+     (display ";}")]
+    [else
+     (error "#<lambda> is wrong syntax")]))
+
+(define (tronlang-let a-syntax)
+  (let ((variables (first a-syntax)))
+    (unless (list? variables)
+      (error "#<let> is bad syntax"))
+    (for ([x variables])
+      (when (or (not (list? x))
+                (not (= 2 (length x))))
+        (error "#<let> is bad syntax")))
+    (tronlang-single
+     `(call (lambda ,(map (lambda (x) (first x)) variables) ,@(rest a-syntax))
+            ,@(map (lambda (x) (second x)) variables)))))
+     
+(define (tronlang-if a-syntax)
+  (define (iter a-list first? else?)
+    (if (empty? a-list)
+        (unless else?
+          (display "(null)"))
+        (let ((current (first a-list)))
+          (if (or (not (list? current))
+                  (empty? current))
+              (error "#<if> is wrong syntax")
+              (let ((first-syntax (first current)))
+                (if (equal? first-syntax 'else)
+                    (if else?
+                        (error "#<if>: else is presented")
+                        (begin
+                          (when first?
+                            (error "#<if>: else cannot be first"))
+                          (tronlang-body (rest current))
+                          (iter (rest a-list) #f #t)))
+                    (begin
+                      (display "(")
+                      (tronlang-single first-syntax)
+                      (display ")?")
+                      (tronlang-body (rest current))
+                      (display ":")
+                      (iter (rest a-list) #f else?))))))))
+  (if (or (not (list? a-syntax))
+          (empty? a-syntax))
+      (error "#<if> is wrong syntax")
+      (begin
+        (display "(")
+        (iter a-syntax #t #f)
+        (display ")"))))
+
+(define (tronlang-operator a-syntax)
+  (define (iter a-list op-name)
+    (if (= 1 (length a-list))
+        (tronlang-single (first a-list))
+        (begin
+          (tronlang-single (first a-list))
+          (display " ")
+          (display op-name)
+          (display " ")
+          (iter (rest a-list) op-name))))
+  (let ((name (first a-syntax))
+        (body (rest a-syntax)))
+    (cond
+      [(= 0 (length body))
+       (error "#<operator> must not be empty")]
+      [(= 1 (length body))
+       (case name
+         [(not)
+          (display "!(")
+          (tronlang-single (first body))
+          (display ")")]
+         [(typeof)
+          (display "typeof(")
+          (tronlang-single (first body))
+          (display ")")]
+         [(+ -)
+          (display "(")
+          (display name)
+          (display "(")
+          (tronlang-single (first body))
+          (display "))")]
+         [else
+          (error "Wrong unary syntax")])]
+      [else
+       (display "(")
+       (case name
+         [(not) (error "#<not> is unary operator")]
+         [(typeof) (error "#<typeof> is unary operator")]
+         [(+ - * / % < > <= >= << >> == != instanceof)
+          (iter body name)]
+         [(or)      (iter body "||")]
+         [(and)     (iter body "&&")]
+         [(bit-or)  (iter body "|")]
+         [(bit-xor) (iter body "^")]
+         [(bit-and) (iter body "|")]
+         [else
+          (error "Unknown operator")])
+       (display ")")])))
+
+(define (tronlang-assign a-syntax)
+  (if (= 2 (length a-syntax))
+      (begin
+        (tronlang-single (first a-syntax))
+        (display " = ")
+        (tronlang-single (second a-syntax)))
+      (error "#<assign> is wrong syntax")))
+
+(define (tronlang-indexor a-syntax)
+  (define (iter a-list)
+    (unless (empty? a-list)
+      (let ((current (first a-list)))
+        (if (keyword? current)
+            (begin
+              (display ".")
+              (tronlang-single current))
+            (begin
+              (display "[")
+              (tronlang-single current)
+              (display "]")))
+        (iter (rest a-list)))))
+
+  (if (< (length a-syntax) 2)
+      (error "#<indexor> must has 2 or more items")
+      (begin
+        (display "(")
+        (tronlang-single (first a-syntax))
+        (display ")")
+        (iter (rest a-syntax)))))
+
+(define (tronlang-return a-syntax)
+  (if (not (= 1 (length a-syntax)))
+      (error "#<return> is wrong")
+      (begin
+        (display "return(")
+        (tronlang-single (first a-syntax))
+        (display ")"))))
+
+(define (tronlang-defalias a-syntax)
+  (if (or (not (= 2 (length a-syntax)))
+          (not (symbol? (first a-syntax)))
+          (not (symbol? (second a-syntax))))
+      (error "#<defalias> is wrong")
+      (begin
+        (tronlang-set-alias (first a-syntax) (second a-syntax)))))
+
+(define (tronlang-array a-syntax)
+  (define (iter a-list)
+    (cond
+      ((empty? a-list) (void))
+      ((= 1 (length a-list))
+       (tronlang-single (first a-list)))
+      ((tronlang-single (first a-list))
+       (display ",")
+       (iter (rest a-list)))))
+  (display "[")
+  (iter a-syntax)
+  (display "]"))
+
+(define (tronlang-object a-syntax)
+  (define (iter a-list)
+    (cond
+      ((empty? a-list) (void))
+      ((list? (first a-list))
+       (cond
+         ((equal? 'defn (first (first a-list)))
+          (letrec ((form (first a-list))
+                   (name (second form))
+                   (body (rest (rest form))))
+            (unless (symbol? name)
+               (error "#<object-defn>: bad syntax"))
+            (tronlang-single name)
+            (display ":")
+            (tronlang-lambda body)))
+         ((equal? 'defvar (first (first a-list)))
+          (letrec ((form (first a-list))
+                   (name (if (= 3 (length form)) (second form) (error "#<object-defvar>: bad syntax")))
+                   (body (third form)))
+            (unless (symbol? name)
+              (error "#<object-defvar>: bad syntax"))
+            (tronlang-single name)
+            (display ":")
+            (tronlang-single body)))
+         (else
+          (error "#<object>: bad syntax"))))
+      ((= (modulo (length a-list) 2) 1)
+       (error "#<object>: object is key-value pair construct"))
+      ((if (keyword? (first a-list))
+           (tronlang-single (first a-list))
+           (begin
+             (display "[")
+             (tronlang-single (first a-list))
+             (display "]")))
+       (display ":")
+       (tronlang-single (second a-list))
+       (display ",")
+       (iter (rest (rest a-list))))))
+  (display "{")
+  (iter a-syntax)
+  (display "}"))
+
+(define (tronlang-js-code a-syntax)
+  (if (or (not (= 1 (length a-syntax)))
+          (not (string? (first a-syntax))))
+      (error "#<js-code> is wrong")
+      (display (first a-syntax))))
+
+(define (tronlang-defvar a-syntax value?)
+  (if (or (< (length a-syntax) 1)
+          (> (length a-syntax) 2)
+          (not (symbol? (first a-syntax))))
+      (error "#<defvar> is wrong")
+      (begin
+        (display "var ")
+        (tronlang-single (first a-syntax))
+        (when (and value?
+                   (= 2 (length a-syntax)))
+          (display " = ")
+          (tronlang-single (second a-syntax))))))
+
+(define (tronlang-new a-syntax)
+  (if (< (length a-syntax) 1)
+      (error "#<new> is wrong")
+      (begin
+        (display "new ")
+        (tronlang-single (first a-syntax))
+        (tronlang-argv #f (rest a-syntax)))))
+
+(define (tronlang-quote a-syntax)
+  (cond
+    [(symbol? a-syntax)
+     (tronlang-new `(%tron-symbol ,(symbol->string a-syntax)))]
+    [(keyword? a-syntax)
+     (tronlang-new `(%tron-keyword ,(keyword->string a-syntax)))]
+    [(list? a-syntax)
+     (display "[")
+     (letrec
+         ((iter
+           (lambda (a-list)
+             (if (empty? a-list)
+                 (void)
+                 (begin
+                   (tronlang-quote (first a-list))
+                   (display ",")
+                   (iter (rest a-list)))))))
+       (iter a-syntax))
+     (display "]")]
+    [else
+     (tronlang-single a-syntax)]))
+
+(define (tronlang-quasiquote a-syntax)
+  (cond
+    [(symbol? a-syntax)
+     (tronlang-new `(%tron-symbol ,(symbol->string a-syntax)))]
+    [(keyword? a-syntax)
+     (tronlang-new `(%tron-keyword ,(keyword->string a-syntax)))]
+    [(list? a-syntax)
+     (cond
+       [(equal? 'unquote (first a-syntax))
+        (if (= 2 (length a-syntax))
+            (tronlang-single (second a-syntax))
+            (error "#<unquote>: missing parameters"))]
+       [(equal? 'unquote-splicing (first a-syntax))
+        (error "#<unquote-splicing: not implemented")
+        (if (= 2 (length a-syntax))
+            (tronlang-single (second a-syntax))
+            (error "#<unquote>: missing parameters"))]
+       [else
+        (display "[")
+        (letrec
+            ((iter
+              (lambda (a-list)
+                (if (empty? a-list)
+                    (void)
+                    (begin
+                      (tronlang-quasiquote (first a-list))
+                      (display ",")
+                      (iter (rest a-list)))))))
+          (iter a-syntax))
+        (display "]")])]
+    [else
+     (tronlang-single a-syntax)]))
+
+(define (tronlang-pipe a-syntax)
+  (define (iter a-list)
+    (if (empty? a-list)
+        (void)
+        (let ((current (first a-list)))
+          (when (or (not (list? current))
+                    (< (length current 2))
+                    (not (list? (second current))))
+            (error "#<pipe>: bad syntax"))
+          (case (first current)
+            [(then catch)
+             (display ".")
+             (display (first current))
+             (display "(function ")
+             (tronlang-argv #t (second current))
+             (tronlang-body (rest (rest current)))
+             (display ")")
+             (iter (rest a-list))]
+            [else
+             (error "#<pipe>: bad syntax")]))))
+  (when (< (length a-syntax) 2)
+    (error "#<pipe>: bad syntax"))
+  (display "(")
+  (tronlang-single (first a-syntax))
+  (display ")")
+  (iter (rest a-syntax)))
+
+(define (tronlang-deftype a-syntax)
+  (tronlang-defn a-syntax))
+
+(define (tronlang-list a-syntax)
+  (let ((first-syntax (first a-syntax)))
+    (case first-syntax
+      ((defn)
+       (tronlang-defn (rest a-syntax)))
+      ((lambda)
+       (tronlang-lambda (rest a-syntax)))
+      ((let)
+       (tronlang-let (rest a-syntax)))
+      ((if)
+       (tronlang-if (rest a-syntax)))
+      ((+ - * / % < > <= >= << >> == !=)
+       (tronlang-operator a-syntax))
+      ((and or not typeof bit-and bit-or bit-xor instanceof)
+       (tronlang-operator a-syntax))
+      ((defvar)
+       (tronlang-defvar (rest a-syntax) #t))
+      ((new)
+       (tronlang-new (rest a-syntax)))
+      ((set!)
+       (tronlang-assign (rest a-syntax)))
+      ((get!)
+       (tronlang-indexor (rest a-syntax)))
+      ;((return)
+      ; (tronlang-return (rest a-syntax)))
+      ((progn)
+       (tronlang-body (rest a-syntax)))
+      ((call)
+       (tronlang-call (rest a-syntax)))
+      ((array!)
+       (tronlang-array (rest a-syntax)))
+      ((object!)
+       (tronlang-object (rest a-syntax)))
+      ((pipe)
+       (tronlang-pipe (rest a-syntax)))
+      ;((alias!)
+      ; (tronlang-alias (rest a-syntax)))
+      ((deftype)
+       (tronlang-deftype (rest a-syntax)))
+      ((quote)
+       (if (= (length a-syntax) 2)
+           (tronlang-quote (second a-syntax))
+           (error "#<quote> is missing parameters")))
+      ((quasiquote)
+       (if (= (length a-syntax) 2)
+           (tronlang-quasiquote (second a-syntax))
+           (error "#<quasiquote> is missing parameters")))
+      ((unquote)
+       (error "#<unquote>: not in quasiquote"))
+      ((unquote-splicing)
+       (error "#<unquote-splicing>: not in quasiquote"))
+      ((js-code!)
+       (tronlang-js-code (rest a-syntax)))
+      ((void)
+       (if (= (length a-syntax) 1)
+           (void)
+           (error "#<void>: bad syntax")))
+      (else
+       (tronlang-call a-syntax)))))
+
+(define (tronlang-single a-syntax)
+  (cond
+    [(equal? 'null a-syntax)
+     (display "null")]
+    [(list? a-syntax)
+     (if (empty? a-syntax)
+         (error "missing expression")
+         (tronlang-list a-syntax))]
+    [(string? a-syntax)
+     (print a-syntax)]
+    [(symbol? a-syntax)
+     (case a-syntax
+       [(def let lambda if else var set! get!
+         promise! call class array! object!
+         quote quasiquote unquote unquote-splicing
+         progn and or not typeof
+         bit-and bit-xor bit-or js-code!
+         + - * / % < > <= >= << >> == !=)
+        (error (string-append (symbol->string a-syntax) " is #<specform> keyword"))]
+       [else
+        (if (hash-has-key? tronlang-alias-list a-syntax)
+            (display (tronlang-get-alias a-syntax))
+            (display (tronlang-symbol->js-symbol a-syntax)))])]
+    [(keyword? a-syntax)
+     (display (tronlang-keyword->js-keyword a-syntax))]
+    [(char? a-syntax)
+     (display "(new TronChar(")
+     (display a-syntax)
+     (display ",")
+     (print a-syntax)
+     (display "))")]
+    [(number? a-syntax)
+     (if (real? a-syntax)
+         (display a-syntax)
+         (begin
+           (display "(new TronComplex(")
+           (display (real-part a-syntax))
+           (display ",")
+           (display (imag-part a-syntax))
+           (display "))"))
+         )]
+    [(pregexp? a-syntax)
+     (display "/")
+     (display (object-name a-syntax))
+     (display "/")]
+    [(regexp? a-syntax)
+     (display "/")
+     (display (object-name a-syntax))
+     (display "/")]
+    [(boolean? a-syntax)
+     (if a-syntax
+         (display "true")
+         (display "false"))]))
+
+(define tronlang-macros (make-hash))
+
+(define (tronlang-set-macro! name proc)
+  (hash-set! tronlang-macros name proc))
+
+(define (tronlang-get-macro name)
+  (if (hash-has-key? tronlang-macros name)
+      (hash-ref tronlang-macros name)
+      null))
+
+(define (tronlang-has-macro? name)
+  (hash-has-key? tronlang-macros name))
+
+(define (tronlang-define-macro a-syntax)
+  (when (or (empty? a-syntax)
+            (not (symbol? (first a-syntax))))
+      (error "#<define-macro>: name of macro is not valid"))
+  (eval `(tronlang-set-macro! ',(first a-syntax)
+                              (lambda ,(second a-syntax) ,@(rest (rest a-syntax))))
+        namespace)
+  '(void))
+
+(define tronlang-import-paths '())
+
+(define (tronlang-import file-name)
+  (unless (file-exists? file-name)
+    (error "File not found"))
+  (with-input-from-file file-name
+    (lambda ()
+      (define (iter)
+        (let ((buffer (read)))
+          (if (eof-object? buffer)
+              (void)
+              (begin
+                (tronlang buffer)
+                (display ";\n")
+                (iter)))))
+      (iter))))
+  
+(define (tronlang-analyze syntaxes)
+  (define (analyze a-syntax top?)
+    (cond
+      [(not (list? a-syntax))
+       a-syntax]
+      [(empty? a-syntax)
+       a-syntax]
+      [else
+       (cond
+         ((equal? 'import (first a-syntax))
+          (if (or (not top?)
+                  (not (= 2 (length a-syntax)))
+                  (not (string? (second a-syntax))))
+              (error "#<import>: bad syntax")
+              (tronlang-import (second a-syntax))))
+         ((equal? 'defmacro (first a-syntax))
+          (if top?
+              (tronlang-define-macro (rest a-syntax))
+              (error "#<defmacro>: must be at top-level")))
+         ((tronlang-has-macro? (first a-syntax))
+          (apply (tronlang-get-macro (first a-syntax))
+                 (rest a-syntax)))
+         (else
+          (map (lambda (x) (analyze x #f)) a-syntax)))]))
+  (analyze syntaxes #t))
+
+(define (tronlang syntaxes)
+  (tronlang-single (tronlang-analyze syntaxes)))

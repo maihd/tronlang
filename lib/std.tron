@@ -1,0 +1,33 @@
+;;
+;; Tronlang Standard library
+;;
+
+(deftype %tron-symbol (value)
+  (set! this.value value))
+
+(deftype %tron-keyword (value)
+  (set! this.value value))
+
+(defn number? (x)
+  (== "number" (typeof x)))
+
+(defn string? (x)
+  (== "string" (typeof x)))
+
+(defn symbol? (x)
+  (instanceof x %tron-symbol))
+
+(defn keyword? (x)
+  (instanceof x %tron-keyword))
+
+(defn string->symbol (x)
+  (new %tron-symbol x))
+
+(defn string->keyword (x)
+  (new %tron-keyword x))
+
+(defn symbol->string (x)
+  (new %tron-symbol x))
+
+(defn keyword->string (x)
+  (new %tron-keyword x))

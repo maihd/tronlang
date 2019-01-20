@@ -1,0 +1,13 @@
+.vs
+.vscode
+.DS_Store
+
+.o
+.a
+.so
+.exe
+.obj
+.bak
+
+/compiled
+/src/compiled
