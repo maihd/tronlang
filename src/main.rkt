@@ -2,6 +2,9 @@
 
 (require "tronlang.rkt")
 
+(define cmdarg-import-paths (make-parameter '()))
+(define cmdarg-output-filename (make-parameter #false))
+
 (define (compile-file in-file expect-out-file)
   ;;
   (define out-file
@@ -21,28 +24,28 @@
       (display "\"use strict\";\n")
       (display "(function(){")
       (letrec
-        ((loop
+        ((exedir (find-system-path 'orig-dir))
+         (import-paths (append (cmdarg-import-paths) (list (build-path exedir "lib"))))
+         (loop
           (lambda (in)
             (let ([buffer (read in)])
               (if (eof-object? buffer)
                   (close-input-port in)
                   (begin
-                    (tronlang buffer)
+                    (tronlang buffer #:file-path in-file #:import-paths import-paths)
                     (display ";\n")
                     (loop in)))))))
-        (let ((exedir (find-system-path 'orig-dir)))
-          (loop (open-input-file (build-path exedir "lib/std.tron"))))
+        (tronlang '(import "std.tron") #:file-path (build-path exedir "lib/std.tron") #:import-paths import-paths)
         (loop (open-input-file in-file)))
       (display "})();"))))
-
-(define output-filename (make-parameter #false))
 
 ;; parse command line
 (define-values (input-filename)
   (command-line #:program "Tron Language v1.0"
                 #:multi
-                [("-o" "--output") file "Output file." (output-filename file)]
+                [("-o" "--output") file "Output file." (cmdarg-output-filename file)]
+                [("-I" "--import") path "Import path." (cmdarg-import-paths (append (cmdarg-import-paths) path))]
                 #:args (input-filename)
                 input-filename))
 
-(compile-file input-filename (output-filename))
+(compile-file input-filename (cmdarg-output-filename))

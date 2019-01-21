@@ -593,16 +593,23 @@
 (define tronlang-import-paths '())
 
 (define (tronlang-import file-name)
-  (unless (file-exists? file-name)
-    (error "File not found"))
-  (with-input-from-file file-name
+  (define file-path (make-parameter #f))
+  (for ((parent-path tronlang-import-paths)
+        #:unless (file-path))
+    (let ((test-file-path (build-path parent-path file-name)))
+      (when (file-exists? test-file-path)
+        (file-path test-file-path))))
+  (unless (file-path)
+    (error (string-append "Cannot import file: " file-name ". Are you missing import path?")))
+  
+  (with-input-from-file (file-path)
     (lambda ()
       (define (iter)
         (let ((buffer (read)))
           (if (eof-object? buffer)
               (void)
               (begin
-                (tronlang buffer)
+                (tronlang buffer )
                 (display ";\n")
                 (iter)))))
       (iter))))
@@ -633,5 +640,12 @@
           (map (lambda (x) (analyze x #f)) a-syntax)))]))
   (analyze syntaxes #t))
 
-(define (tronlang syntaxes)
-  (tronlang-single (tronlang-analyze syntaxes)))
+(define (tronlang syntaxes #:file-path [file-path #f] #:import-paths [import-paths #f])
+  (let ((old-import-paths tronlang-import-paths))
+    (when import-paths
+      (set! tronlang-import-paths
+            (if file-path
+                (append (list (path->directory-path file-path)) import-paths)
+                import-paths)))
+    (tronlang-single (tronlang-analyze syntaxes))
+    (set! tronlang-import-paths old-import-paths)))
