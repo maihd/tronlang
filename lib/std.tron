@@ -3,57 +3,87 @@
 ;;
 
 (deftype %tron-symbol (value)
-  (set! this.value value))
+  (set! this.value value)
+)
 
 (deftype %tron-keyword (value)
-  (set! this.value value))
+  (set! this.value value)
+)
 
 (defn null? (x)
-  (or (== "null" (typeof x)) (== "undefined" (typeof x))))
+  (or (== "null" (typeof x)) (== "undefined" (typeof x)))
+)
 
 (defn number? (x)
-  (== "number" (typeof x)))
+  (== "number" (typeof x))
+)
 
 (defn string? (x)
-  (== "string" (typeof x)))
+  (== "string" (typeof x))
+)
 
 (defn symbol? (x)
-  (instanceof x %tron-symbol))
+  (instanceof x %tron-symbol)
+)
 
 (defn keyword? (x)
-  (instanceof x %tron-keyword))
+  (instanceof x %tron-keyword)
+)
 
 (defn string->symbol (x)
-  (new %tron-symbol x))
+  (new %tron-symbol x)
+)
 
 (defn string->keyword (x)
-  (new %tron-keyword x))
+  (new %tron-keyword x)
+)
 
 (defn symbol->string (x)
-  (new %tron-symbol x))
+  (new %tron-symbol x)
+)
 
 (defn keyword->string (x)
-  (new %tron-keyword x))
+  (new %tron-keyword x)
+)
 
 ;;
 ;; Standard macro
 ;;
 
 (defmacro when (condition . body)
-  `(if ((not ,condition)
-        ,@body)))
+  `(if 
+    ((not ,condition) ,@body)
+  )
+)
 
 (defmacro unless (condition . body)
-  `(if ((not ,condition)
-        ,@body)))
+  `(if 
+    ((not ,condition) ,@body)
+  )
+)
+
+(defmacro for (init condition increment . body)
+  (let ((result-variable (gensym "__r")))
+    `(let ,(append init (list (list result-variable #f)))
+      (while ,condition 
+        (set! ,result-variable (progn ,@body))
+        ,increment
+        ,result-variable
+      )
+    )
+  )
+)
 
 ;;
 ;; Node module support
 ;;
 
-(if ((== "undefined" (typeof module))
-     (set! window.module (object!))
-     (set! window.module.export (object!))))
+(if 
+  [(== "undefined" (typeof module))
+    (set! window.module (object!))
+    (set! window.module.export (object!))
+  ]
+)
 
 (defmacro export (name body)
   (unless (symbol? name)

@@ -653,7 +653,8 @@
               (error "#<defmacro>: must be at top-level")))
          ((tronlang-has-macro? (first a-syntax))
           (analyze (apply (tronlang-get-macro (first a-syntax))
-                          (rest a-syntax))))
+                          (rest a-syntax))
+                   #f))
          (else
           (map (lambda (x) (analyze x #f)) a-syntax)))]))
   (analyze syntaxes #t))

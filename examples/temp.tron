@@ -37,3 +37,11 @@
     (set! loop-count (- loop-count 1))
   )
 )
+
+(for 
+  ([for-loop-count 10])
+  (> loop-count 0)
+  (set! for-loop-count (- for-loop-count 1))
+  
+  (console.log (+ "for-loop-count: " for-loop-count))
+)

@@ -31,7 +31,7 @@
                     (tronlang buffer #:file-path in-file #:import-paths import-paths)
                     (display ";\n")
                     (loop in)))))))
-        (tronlang '(import "std.tron") #:file-path (build-path exedir "lib/std.tron") #:import-paths import-paths)
+        (tronlang '(import "std.tron") #:file-path (build-path exedir "lib/runtime.tron") #:import-paths import-paths)
         (loop (open-input-file in-file))))))
 
 ;; parse command line
