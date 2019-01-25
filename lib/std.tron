@@ -53,7 +53,7 @@
 
 (if ((== "undefined" (typeof module))
      (set! window.module (object!))
-     (set! window.module.exporst (object!))))
+     (set! window.module.export (object!))))
 
 (defmacro export (name body)
   (unless (symbol? name)

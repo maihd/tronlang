@@ -30,6 +30,9 @@
 			"include": "#vector"
 		},
 		{
+			"include": "#boolean"
+		},
+		{
 			"include": "#set"
 		},
 		{
@@ -122,12 +125,12 @@
 		"keyfn": {
 			"patterns": [
 				{
-					"match": "(?<=(\\s|\\(|\\[|\\{))(if(-[-a-z\\?]*)?|when(-[-a-z]*)?|for(-[-a-z]*)?|cond|do|let(-[-a-z\\?]*)?|binding|loop|recur|fn|throw[a-z\\-]*|try|catch|finally|([a-z]*case))(?=(\\s|\\)|\\]|\\}))",
+					"match": "(?<=(\\s|\\(|\\[|\\{))(if(-[-a-z\\?]*)?|when(-[-a-z]*)?|while(-[-a-z]*)?|cond|progn|pipe|js-code!|let(-[-a-z\\?]*)?|binding|typeof|instanceof|set!|export|import|new|object!|array!|get!|([a-z]*case))(?=(\\s|\\)|\\]|\\}))",
 					"name": "storage.control.tronlang"
 				},
 				{
-					"match": "(?<=(\\s|\\(|\\[|\\{))(declare-?|(in-)?ns|import|use|require|load|compile|(def[a-z\\-]*))(?=(\\s|\\)|\\]|\\}))",
-					"name": "keyword.control.tronlang"
+					"match": "(?<=(\\s|\\(|\\[|\\{))(\\+|\\-|\\*|\\/|\\%|\\<\\<|\\>\\>|\\!\\=|\\=\\=|and|or|not|bit-and|bit-or|bit-xor)(?=(\\s|\\)|\\]|\\}))",
+					"name": "storage.control.tronlang"
 				}
 			]
 		},
@@ -393,6 +396,14 @@
 							"name": "meta.symbol.namespace.tronlang"
 						}
 					}
+				}
+			]
+		},
+		"boolean": {
+			"patterns": [
+				{
+					"match": "(?<=(\\s|\\)|\\]|\\}))(\\#f|\\#false|\\#t|\\#true)(?=(\\s|\\)|\\]|\\}))",
+					"name": "meta.boolean.tronlang"
 				}
 			]
 		},

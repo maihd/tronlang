@@ -20,3 +20,4 @@ function object$04$(x){return ((typeof(x) == "object"));};
 function $16$point(x,y){return (this.x = x,this.y = y);};
 $16$point.prototype = {to$00$string:function (){return (("point(" + this.x + ", " + this.y + ")"));}};
 (function (p){return ((print)(p),(((object$04$)(p))?((print)("This is an object")):(null)),(console.log)((p.to$00$string)()));})(new $16$point(1,2));
+(function (loop$00$count){return ((function() { var __r78; while ((loop$00$count > 0)) __r78 = ((console.log)(("loop-count: " + loop$00$count)),loop$00$count = (loop$00$count - 1)); return __r78;})());})(100);
