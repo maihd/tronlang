@@ -454,6 +454,12 @@
 (define (tronlang-deftype a-syntax)
   (tronlang-defn a-syntax))
 
+(define (tronlang-while a-syntax)
+  (display "(function() { var __r; while (")
+  (display ") result = ")
+  (tronlang-body (rest a-syntax))
+  (display "; return __r;})()"))
+
 (define (tronlang-list a-syntax)
   (let ((first-syntax (first a-syntax)))
     (case first-syntax
@@ -473,6 +479,8 @@
        (tronlang-defvar (rest a-syntax) #t))
       ((defconst)
        (tronlang-defvar (rest a-syntax) #t))
+      ((while)
+       (tronlang-while (rest a-syntax)))
       ((new)
        (tronlang-new (rest a-syntax)))
       ((set!)
