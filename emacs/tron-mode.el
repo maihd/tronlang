@@ -167,7 +167,7 @@ See `run-hooks'."
                    ;; Macro names, as variable names.  A bit dubious, this.
                    "\\(macro\\)\\|"
                    ;; Variable names
-                   "\\(var\\)\\|"
+                   "\\(var\\|const\\)\\|"
                    ;; Class names.
                    "\\(type\\)"
                    "\\)\\)\\>"
@@ -191,13 +191,16 @@ See `run-hooks'."
      (list
       ;;
       ;; Control structures.
-      (list (concat "(\\(let\\|lambda\\|call\\|progn\\|new\\|import\\|export"
-                    "\\|else\\|for-each\\|if"
-                    "\\|and\\|or\\|not\\|bit-and\\|bit-or\\|bit-xor"
-                    "\\|array!\\|object!\\|js-code!"
-                    "\\|set!\\|get!\\|quote\\|unquote\\|quasiquote"
-                    "\\|pipe\\|typeof\\|instanceof\\|this"
-                    "\\)\\>"
+      (list (concat "("
+                    (regexp-opt
+                     '("let" "lambda" "call" "progn" "new" "import" "export"
+                       "else" "if" "when" "unless"
+                       "and" "or" "not" "bit-and" "bit-or" "bit-xor"
+                       "array!" "object!" "js-code!"
+                       "set!" "get!" "quote" "unquote" "quasiquote"
+                       "pipe" "typeof" "instanceof" "this")
+                     t)
+                    "\\>"
                     "[ \t]*(*"
                     "\\(\\sw+\\)?")
             '(1 font-lock-keyword-face))
@@ -325,9 +328,10 @@ indentation."
                    (and (null method)
                         (> (length function) 3)
                         (string-match "\\`def" function))
-		   (member function '("def" "defmacro" "progn"
-                              "let" "lambda" "call" "set!"
-                              "promise!" "array!" "object!")))
+		           (member function '("progn"
+                                      "if" "when" "unless" "export"
+                                      "let" "lambda" "call" "set!"
+                                      "promise!" "array!" "object!")))
                (lisp-indent-defform state indent-point))
               ((integerp method)
                (lisp-indent-specform method state

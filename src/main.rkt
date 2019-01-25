@@ -6,7 +6,6 @@
 (define cmdarg-output-filename (make-parameter #false))
 
 (define (compile-file in-file expect-out-file)
-  ;;
   (define out-file
     (if expect-out-file
         expect-out-file
@@ -16,13 +15,10 @@
                (list-set splitted (- (length splitted) 1) "js")
                (append splitted "js"))
            "."))))
-
-  ;; open compile file
   (with-output-to-file out-file #:exists 'replace
     (lambda ()
       (display "// Code generated from Tron Language\n")
       (display "\"use strict\";\n")
-      (display "(function(){")
       (letrec
         ((exedir (find-system-path 'orig-dir))
          (import-paths (append (cmdarg-import-paths) (list (build-path exedir "lib"))))
@@ -36,8 +32,7 @@
                     (display ";\n")
                     (loop in)))))))
         (tronlang '(import "std.tron") #:file-path (build-path exedir "lib/std.tron") #:import-paths import-paths)
-        (loop (open-input-file in-file)))
-      (display "})();"))))
+        (loop (open-input-file in-file))))))
 
 ;; parse command line
 (define-values (input-filename)

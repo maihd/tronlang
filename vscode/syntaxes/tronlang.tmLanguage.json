@@ -1,0 +1,435 @@
+{
+	"information_for_contributors": [
+		"This file has been converted from vscode/extensions/clojure",
+		"If you want to provide a fix or improvement, please create a pull request against the original repository.",
+		"Once accepted there, we are happy to receive an update request."
+	],
+	"version": "https://github.com/maihd/tronlang/vscode",
+	"name": "TronLang",
+	"scopeName": "source.tronlang",
+	"patterns": [
+		{
+			"include": "#comment"
+		},
+		{
+			"include": "#shebang-comment"
+		},
+		{
+			"include": "#quoted-sexp"
+		},
+		{
+			"include": "#sexp"
+		},
+		{
+			"include": "#keyfn"
+		},
+		{
+			"include": "#string"
+		},
+		{
+			"include": "#vector"
+		},
+		{
+			"include": "#set"
+		},
+		{
+			"include": "#map"
+		},
+		{
+			"include": "#regexp"
+		},
+		{
+			"include": "#var"
+		},
+		{
+			"include": "#constants"
+		},
+		{
+			"include": "#dynamic-variables"
+		},
+		{
+			"include": "#metadata"
+		},
+		{
+			"include": "#namespace-symbol"
+		},
+		{
+			"include": "#symbol"
+		}
+	],
+	"repository": {
+		"comment": {
+			"begin": "(?<!\\\\);",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.definition.comment.tronlang"
+				}
+			},
+			"end": "$",
+			"name": "comment.line.semicolon.tronlang"
+		},
+		"constants": {
+			"patterns": [
+				{
+					"match": "(nil)(?=(\\s|\\)|\\]|\\}))",
+					"name": "constant.language.nil.tronlang"
+				},
+				{
+					"match": "(true|false)",
+					"name": "constant.language.boolean.tronlang"
+				},
+				{
+					"match": "(-?\\d+/\\d+)",
+					"name": "constant.numeric.ratio.tronlang"
+				},
+				{
+					"match": "(-?\\d+[rR][0-9a-zA-Z]+)",
+					"name": "constant.numeric.arbitrary-radix.tronlang"
+				},
+				{
+					"match": "(-?0[xX][0-9a-fA-F]+)",
+					"name": "constant.numeric.hexadecimal.tronlang"
+				},
+				{
+					"match": "(-?0\\d+)",
+					"name": "constant.numeric.octal.tronlang"
+				},
+				{
+					"match": "(-?\\d+\\.\\d+([eE][+-]?\\d+)?M)",
+					"name": "constant.numeric.bigdecimal.tronlang"
+				},
+				{
+					"match": "(-?\\d+\\.\\d+([eE][+-]?\\d+)?)",
+					"name": "constant.numeric.double.tronlang"
+				},
+				{
+					"match": "(-?\\d+N)",
+					"name": "constant.numeric.bigint.tronlang"
+				},
+				{
+					"match": "(-?\\d+)",
+					"name": "constant.numeric.long.tronlang"
+				},
+				{
+					"include": "#keyword"
+				}
+			]
+		},
+		"keyword": {
+			"match": "(?<=(\\s|\\(|\\[|\\{))#:[a-zA-Z0-9\\#\\.\\-\\_\\:\\+\\=\\>\\<\\/\\!\\?\\*]+(?=(\\s|\\)|\\]|\\}|\\,))",
+			"name": "constant.keyword.tronlang"
+		},
+		"keyfn": {
+			"patterns": [
+				{
+					"match": "(?<=(\\s|\\(|\\[|\\{))(if(-[-a-z\\?]*)?|when(-[-a-z]*)?|for(-[-a-z]*)?|cond|do|let(-[-a-z\\?]*)?|binding|loop|recur|fn|throw[a-z\\-]*|try|catch|finally|([a-z]*case))(?=(\\s|\\)|\\]|\\}))",
+					"name": "storage.control.tronlang"
+				},
+				{
+					"match": "(?<=(\\s|\\(|\\[|\\{))(declare-?|(in-)?ns|import|use|require|load|compile|(def[a-z\\-]*))(?=(\\s|\\)|\\]|\\}))",
+					"name": "keyword.control.tronlang"
+				}
+			]
+		},
+		"dynamic-variables": {
+			"match": "\\*[\\w\\.\\-\\_\\:\\+\\=\\>\\<\\!\\?\\d]+\\*",
+			"name": "meta.symbol.dynamic.tronlang"
+		},
+		"map": {
+			"begin": "(\\{)",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.section.map.begin.tronlang"
+				}
+			},
+			"end": "(\\}(?=[\\}\\]\\)\\s]*(?:;|$)))|(\\})",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.section.map.end.trailing.tronlang"
+				},
+				"2": {
+					"name": "punctuation.section.map.end.tronlang"
+				}
+			},
+			"name": "meta.map.tronlang",
+			"patterns": [
+				{
+					"include": "$self"
+				}
+			]
+		},
+		"metadata": {
+			"patterns": [
+				{
+					"begin": "(\\^\\{)",
+					"beginCaptures": {
+						"1": {
+							"name": "punctuation.section.metadata.map.begin.tronlang"
+						}
+					},
+					"end": "(\\}(?=[\\}\\]\\)\\s]*(?:;|$)))|(\\})",
+					"endCaptures": {
+						"1": {
+							"name": "punctuation.section.metadata.map.end.trailing.tronlang"
+						},
+						"2": {
+							"name": "punctuation.section.metadata.map.end.tronlang"
+						}
+					},
+					"name": "meta.metadata.map.tronlang",
+					"patterns": [
+						{
+							"include": "$self"
+						}
+					]
+				},
+				{
+					"begin": "(\\^)",
+					"end": "(\\s)",
+					"name": "meta.metadata.simple.tronlang",
+					"patterns": [
+						{
+							"include": "#keyword"
+						},
+						{
+							"include": "$self"
+						}
+					]
+				}
+			]
+		},
+		"quoted-sexp": {
+			"begin": "(['``]\\()",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.section.expression.begin.tronlang"
+				}
+			},
+			"end": "(\\))$|(\\)(?=[\\}\\]\\)\\s]*(?:;|$)))|(\\))",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.section.expression.end.trailing.tronlang"
+				},
+				"2": {
+					"name": "punctuation.section.expression.end.trailing.tronlang"
+				},
+				"3": {
+					"name": "punctuation.section.expression.end.tronlang"
+				}
+			},
+			"name": "meta.quoted-expression.tronlang",
+			"patterns": [
+				{
+					"include": "$self"
+				}
+			]
+		},
+		"regexp": {
+			"begin": "#\"",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.definition.regexp.begin.tronlang"
+				}
+			},
+			"end": "\"",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.definition.regexp.end.tronlang"
+				}
+			},
+			"name": "string.regexp.tronlang",
+			"patterns": [
+				{
+					"include": "#regexp_escaped_char"
+				}
+			]
+		},
+		"regexp_escaped_char": {
+			"match": "\\\\.",
+			"name": "constant.character.escape.tronlang"
+		},
+		"set": {
+			"begin": "(\\#\\{)",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.section.set.begin.tronlang"
+				}
+			},
+			"end": "(\\}(?=[\\}\\]\\)\\s]*(?:;|$)))|(\\})",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.section.set.end.trailing.tronlang"
+				},
+				"2": {
+					"name": "punctuation.section.set.end.tronlang"
+				}
+			},
+			"name": "meta.set.tronlang",
+			"patterns": [
+				{
+					"include": "$self"
+				}
+			]
+		},
+		"sexp": {
+			"begin": "(\\()",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.section.expression.begin.tronlang"
+				}
+			},
+			"end": "(\\))$|(\\)(?=[\\}\\]\\)\\s]*(?:;|$)))|(\\))",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.section.expression.end.trailing.tronlang"
+				},
+				"2": {
+					"name": "punctuation.section.expression.end.trailing.tronlang"
+				},
+				"3": {
+					"name": "punctuation.section.expression.end.tronlang"
+				}
+			},
+			"name": "meta.expression.tronlang",
+			"patterns": [
+				{
+					"begin": "(?<=\\()(ns|declare|def[\\w\\d._:+=><!?*-]*|[\\w._:+=><!?*-][\\w\\d._:+=><!?*-]*/def[\\w\\d._:+=><!?*-]*)\\s+",
+					"beginCaptures": {
+						"1": {
+							"name": "keyword.control.tronlang"
+						}
+					},
+					"end": "(?=\\))",
+					"name": "meta.definition.global.tronlang",
+					"patterns": [
+						{
+							"include": "#metadata"
+						},
+						{
+							"include": "#dynamic-variables"
+						},
+						{
+							"match": "([a-zA-Z\\.\\-\\_\\+\\=\\>\\<\\!\\?\\*][\\w\\.\\-\\_\\:\\+\\=\\>\\<\\!\\?\\*\\d]*)",
+							"name": "entity.global.tronlang"
+						},
+						{
+							"include": "$self"
+						}
+					]
+				},
+				{
+					"include": "#keyfn"
+				},
+				{
+					"include": "#constants"
+				},
+				{
+					"include": "#vector"
+				},
+				{
+					"include": "#map"
+				},
+				{
+					"include": "#set"
+				},
+				{
+					"include": "#sexp"
+				},
+				{
+					"match": "(?<=\\()(.+?)(?=\\s|\\))",
+					"captures": {
+						"1": {
+							"name": "entity.name.function.tronlang"
+						}
+					},
+					"patterns": [
+						{
+							"include": "$self"
+						}
+					]
+				},
+				{
+					"include": "$self"
+				}
+			]
+		},
+		"shebang-comment": {
+			"begin": "^(#!)",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.definition.comment.shebang.tronlang"
+				}
+			},
+			"end": "$",
+			"name": "comment.line.shebang.tronlang"
+		},
+		"string": {
+			"begin": "(?<!\\\\)(\")",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.definition.string.begin.tronlang"
+				}
+			},
+			"end": "(\")",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.definition.string.end.tronlang"
+				}
+			},
+			"name": "string.quoted.double.tronlang",
+			"patterns": [
+				{
+					"match": "\\\\.",
+					"name": "constant.character.escape.tronlang"
+				}
+			]
+		},
+		"namespace-symbol": {
+			"patterns": [
+				{
+					"match": "([a-zA-Z\\.\\-\\_\\+\\=\\>\\<\\!\\?\\*][\\w\\.\\-\\_\\:\\+\\=\\>\\<\\!\\?\\*\\d]*)/",
+					"captures": {
+						"1": {
+							"name": "meta.symbol.namespace.tronlang"
+						}
+					}
+				}
+			]
+		},
+		"symbol": {
+			"patterns": [
+				{
+					"match": "([a-zA-Z\\.\\-\\_\\+\\=\\>\\<\\!\\?\\*][\\w\\.\\-\\_\\:\\+\\=\\>\\<\\!\\?\\*\\d]*)",
+					"name": "meta.symbol.tronlang"
+				}
+			]
+		},
+		"var": {
+			"match": "(?<=(\\s|\\(|\\[|\\{)\\#)'[a-zA-Z0-9\\.\\-\\_\\:\\+\\=\\>\\<\\/\\!\\?\\*]+(?=(\\s|\\)|\\]|\\}))",
+			"name": "meta.var.tronlang"
+		},
+		"vector": {
+			"begin": "(\\[)",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.section.vector.begin.tronlang"
+				}
+			},
+			"end": "(\\](?=[\\}\\]\\)\\s]*(?:;|$)))|(\\])",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.section.vector.end.trailing.tronlang"
+				},
+				"2": {
+					"name": "punctuation.section.vector.end.tronlang"
+				}
+			},
+			"name": "meta.vector.tronlang",
+			"patterns": [
+				{
+					"include": "$self"
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,11 @@
+(defn read (stream)
+  (defn iter (char-list index)
+    (if
+      ((< index stream.length)
+       (case (first char-list)
+         ((#\newline) (display "newline"))
+         (else
+          (display (first char-list))))
+       (iter (rest char-list)))
+      (else null)))
+  (iter stream 0))

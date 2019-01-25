@@ -1,0 +1,24 @@
+{
+	"name": "tronlang",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "1.0.0",
+	"publisher": "vscode",
+	"engines": { "vscode": "*" },
+	"scripts": {
+		"update-grammar": "node ../../build/npm/update-grammar.js atom/language-tronlang grammars/tronlang.cson ./syntaxes/tronlang.tmLanguage.json"
+	},
+	"contributes": {
+		"languages": [{
+			"id": "tronlang",
+			"aliases": ["TronLang", "tronlang"],
+			"extensions": [".tron", ".tronlang"],
+			"configuration": "./language-configuration.json"
+		}],
+		"grammars": [{
+			"language": "tronlang",
+			"scopeName": "source.tronlang",
+			"path": "./syntaxes/tronlang.tmLanguage.json"
+		}]
+	}
+}

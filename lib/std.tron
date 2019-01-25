@@ -8,6 +8,9 @@
 (deftype %tron-keyword (value)
   (set! this.value value))
 
+(defn null? (x)
+  (or (== "null" (typeof x)) (== "undefined" (typeof x))))
+
 (defn number? (x)
   (== "number" (typeof x)))
 
@@ -31,3 +34,29 @@
 
 (defn keyword->string (x)
   (new %tron-keyword x))
+
+;;
+;; Standard macro
+;;
+
+(defmacro when (condition . body)
+  `(if ((not ,condition)
+        ,@body)))
+
+(defmacro unless (condition . body)
+  `(if ((not ,condition)
+        ,@body)))
+
+;;
+;; Node module support
+;;
+
+(if ((== "undefined" (typeof module))
+     (set! window.module (object!))
+     (set! window.module.exporst (object!))))
+
+(defmacro export (name body)
+  (unless (symbol? name)
+    (error "export name must be a symbol"))
+  `(set! (get! module ,(string->keyword (symbol->string name)))
+     ,body))
