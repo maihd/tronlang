@@ -20,7 +20,7 @@
       (display "// Code generated from Tron Language\n")
       (display "\"use strict\";\n")
       (letrec
-        ((exedir (find-system-path 'orig-dir))
+        ((exedir (let-values ([(result _ __) (split-path (find-system-path 'run-file))]) result))
          (import-paths (append (cmdarg-import-paths) (list (build-path exedir "lib"))))
          (loop
           (lambda (in)

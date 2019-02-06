@@ -2,8 +2,10 @@
 
 (require "tronlang.rkt")
 
+(define cmdarg-import-paths (make-parameter '()))
+(define cmdarg-output-filename (make-parameter #false))
+
 (define (compile-file in-file expect-out-file)
-  ;;
   (define out-file
     (if expect-out-file
         expect-out-file
@@ -13,35 +15,33 @@
                (list-set splitted (- (length splitted) 1) "js")
                (append splitted "js"))
            "."))))
-
-  ;; open compile file
+  (display (find-system-path 'orig-dir))
   (with-output-to-file out-file #:exists 'replace
     (lambda ()
       (display "// Code generated from Tron Language\n")
       (display "\"use strict\";\n")
-      (display "(function(){")
       (letrec
-        ((loop
+        ((exedir (find-system-path 'orig-dir))
+         (import-paths (append (cmdarg-import-paths) (list (build-path exedir "lib"))))
+         (loop
           (lambda (in)
             (let ([buffer (read in)])
               (if (eof-object? buffer)
-                  (void)
+                  (close-input-port in)
                   (begin
-                    (tronlang buffer)
+                    (tronlang buffer #:file-path in-file #:import-paths import-paths)
                     (display ";\n")
                     (loop in)))))))
-        (loop (open-input-file in-file)))
-      (display "})();")))
-  (close-input-port in))
-
-(define output-filename (make-parameter #false))
+        (tronlang '(import "std.tron") #:file-path (build-path exedir "lib/runtime.tron") #:import-paths import-paths)
+        (loop (open-input-file in-file))))))
 
 ;; parse command line
 (define-values (input-filename)
   (command-line #:program "Tron Language v1.0"
                 #:multi
-                [("-o" "--output") file "Output file." (output-filename file)]
+                [("-o" "--output") file "Output file." (cmdarg-output-filename file)]
+                [("-I" "--import") path "Import path." (cmdarg-import-paths (append (cmdarg-import-paths) path))]
                 #:args (input-filename)
                 input-filename))
 
-(compile-file input-filename (output-filename))
+(compile-file input-filename (cmdarg-output-filename))
