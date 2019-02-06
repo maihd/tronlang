@@ -110,8 +110,8 @@
 ;;
 
 (when (== "undefined" (typeof module))
-   (set! window.module (object!))
-   (set! window.module.export (object!))
+   (set! window/module (object!))
+   (set! window/module/export (object!))
 )
 
 (defmacro export [name body]

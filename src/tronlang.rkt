@@ -96,9 +96,12 @@
   (display ")"))
          
 (define (tronlang-call a-syntax)
-  (display "(")
-  (tronlang-single (first a-syntax))
-  (display ")")
+  (if (list? (first a-syntax))
+      (begin
+        (display "(")
+        (tronlang-single (first a-syntax))
+        (display ")"))
+      (tronlang-single (first a-syntax)))
   (tronlang-argv #f (rest a-syntax)))
 
 (define (tronlang-func-vars a-syntax)
@@ -379,6 +382,16 @@
           (display " = ")
           (tronlang-single (second a-syntax))))))
 
+(define (tronlang-defconst a-syntax)
+  (if (or (not (= (length a-syntax) 2))
+          (not (symbol? (first a-syntax))))
+      (error "#<defconst> is wrong")
+      (begin
+        (display "const ")
+        (tronlang-single (first a-syntax))
+        (display " = ")
+        (tronlang-single (second a-syntax)))))
+
 (define (tronlang-new a-syntax)
   (if (< (length a-syntax) 1)
       (error "#<new> is wrong")
@@ -412,9 +425,9 @@
 (define (tronlang-quasiquote a-syntax)
   (cond
     [(symbol? a-syntax)
-     (tronlang-new `(%tron-symbol ,(symbol->string a-syntax)))]
+     (tronlang-new `(TronSymbol ,(symbol->string a-syntax)))]
     [(keyword? a-syntax)
-     (tronlang-new `(%tron-keyword ,(keyword->string a-syntax)))]
+     (tronlang-new `(TronKeyword ,(keyword->string a-syntax)))]
     [(list? a-syntax)
      (cond
        [(equal? 'unquote (first a-syntax))
@@ -504,7 +517,7 @@
       ((defvar)
        (tronlang-defvar (rest a-syntax) #t))
       ((defconst)
-       (tronlang-defvar (rest a-syntax) #t))
+       (tronlang-defconst (rest a-syntax)))
       ((while)
        (tronlang-while (rest a-syntax)))
       ((new)
@@ -620,7 +633,7 @@
 (define (tronlang-define-macro a-syntax)
   (when (or (empty? a-syntax)
             (not (symbol? (first a-syntax))))
-      (error "#<define-macro>: name of macro is not valid"))
+    (error "#<define-macro>: name of macro is not valid"))
   (eval `(tronlang-set-macro! ',(first a-syntax)
                               (lambda ,(second a-syntax) ,@(rest (rest a-syntax))))
         namespace)
@@ -659,22 +672,22 @@
        a-syntax]
       [else
        (cond
-         ((equal? 'import (first a-syntax))
+         [(equal? 'import (first a-syntax))
           (if (or (not top?)
                   (not (= 2 (length a-syntax)))
                   (not (string? (second a-syntax))))
               (error "#<import>: bad syntax")
-              (tronlang-import (second a-syntax))))
-         ((equal? 'defmacro (first a-syntax))
+              (tronlang-import (second a-syntax)))]
+         [(equal? 'defmacro (first a-syntax))
           (if top?
               (tronlang-define-macro (rest a-syntax))
-              (error "#<defmacro>: must be at top-level")))
-         ((tronlang-has-macro? (first a-syntax))
+              (error "#<defmacro>: must be at top-level"))]
+         [(tronlang-has-macro? (first a-syntax))
           (analyze (apply (tronlang-get-macro (first a-syntax))
                           (rest a-syntax))
-                   #f))
-         (else
-          (map (lambda (x) (analyze x #f)) a-syntax)))]))
+                   #f)]
+         [else
+          (map (lambda (x) (analyze x #f)) a-syntax)])]))
   (analyze syntaxes #t))
 
 (define (tronlang syntaxes #:file-path [file-path #f] #:import-paths [import-paths #f])
