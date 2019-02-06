@@ -2,6 +2,9 @@
 
 (provide tronlang)
 
+(define-namespace-anchor namespace-anchor)
+(define namespace (namespace-anchor->namespace namespace-anchor))
+
 (define tronlang-alias-list (make-hash))
 
 (define (tronlang-set-alias name value)
@@ -19,7 +22,7 @@
     [(#\*) "$02$"]
     [(#\/) "$03$"]
     [(#\?) "$04$"]
-    [(#\\) "$05$"]
+    [(#\\) "."]
     [(#\:) "$06$"]
     [(#\@) "$07$"]
     [(#\!) "$08$"]
@@ -31,31 +34,15 @@
     [(#\#) "$14$"]
     [(#\^) "$15$"]
     [(#\%) "$16$"]
+    [(#\.) "$17$"]
     [else (string c)]))
 
 (define (tronlang-naming-convert a-name)
-  (define (js-name-check name)
-    (define (iter a-list)
-      (unless (empty? a-list)
-        (when (not (or (equal? #\_ (first a-list))
-                       (char-numeric? (first a-list))
-                       (char-alphabetic? (first a-list))))
-          (error "#<js-symbol>: not valid"))
-        (iter (rest a-list))))
-    (let ((char-list (string->list name)))
-      (if (or (empty? char-list)
-              (not (or (equal? #\_ (first char-list))
-                       (char-alphabetic? (first char-list)))))
-          (error "#<js-symbol>: not valid")
-          (iter (rest char-list)))))
-  (if (and (> (string-length a-name) 3)
-           (equal? "js:" (substring a-name 0 3)))
-      (let ((result (substring a-name 3)))
-        (js-name-check result)
-        result)
-      (apply string-append
-             (cons "$tronlang_"
-                   (map tronlang-naming-char-convert (string->list a-name))))))
+  (case a-name
+    (("class")
+     ("$trolang_class"))
+    (else
+     (apply string-append (map tronlang-naming-char-convert (string->list a-name))))))
 
 (define (tronlang-symbol->js-symbol a-symbol)
   (tronlang-naming-convert (symbol->string a-symbol)))
@@ -73,8 +60,7 @@
     (if (empty? a-list)
         (void)
         (let ((current (first a-list)))
-          (if (and function-argv?
-                   (not (symbol? current)))
+          (if (and function-argv? (not (symbol? current)))
               (error "Function argument must be #<symbol>")
               (begin
                 (tronlang-single current)
@@ -118,20 +104,19 @@
        (void)]
       [else
        (let ((current (first a-list)))
-         (if (and (list? current)
-                  (> (length current) 0)
-                  (equal? 'var (first current)))
-             (begin
-               (tronlang-var (rest current) #f)
-               (display ";"))
-             (iter current))
+         (when (and (list? current)
+                    (> (length current) 0)
+                    (equal? 'var (first current)))
+           (begin
+             (tronlang-defvar (rest current) #f)
+             (display ";")))
          (iter (rest a-list)))]))
   (iter a-syntax))
 
 (define (tronlang-func-body a-syntax)
   (tronlang-body a-syntax))
 
-(define (tronlang-def a-syntax)
+(define (tronlang-defn a-syntax)
   (display "function ")
   (cond
     [(symbol? (first a-syntax))
@@ -140,26 +125,28 @@
            (tronlang-single (first a-syntax))
            (tronlang-argv #t (second a-syntax))
            (display "{")
-           (tronlang-func-vars (rest (rest a-syntax)))
-           (display "return ")
-           (tronlang-func-body (rest (rest a-syntax)))
+           (letrec ((body (rest (rest a-syntax))))
+             (tronlang-func-vars body)
+             (display "return ")
+             (tronlang-func-body body))
            (display ";}"))
          (error "#<def> is wrong syntax"))]
     [else
      (error "#<def> is wrong syntax")]))
 
-(define (tronlang-func a-syntax)
+(define (tronlang-lambda a-syntax)
   (display "function ")
   (cond
     [(list? (first a-syntax))
      (tronlang-argv #t (first a-syntax))
      (display "{")
-     (tronlang-func-vars (rest a-syntax))
-     (display "return ")
-     (tronlang-func-body (rest a-syntax))
+     (letrec ((body (rest a-syntax)))
+       (tronlang-func-vars body)
+       (display "return ")
+       (tronlang-func-body body))
      (display ";}")]
     [else
-     (error "#<func> is wrong syntax")]))
+     (error "#<lambda> is wrong syntax")]))
 
 (define (tronlang-let a-syntax)
   (let ((variables (first a-syntax)))
@@ -170,7 +157,7 @@
                 (not (= 2 (length x))))
         (error "#<let> is bad syntax")))
     (tronlang-single
-     `(call (func ,(map (lambda (x) (first x)) variables) ,@(rest a-syntax))
+     `(call (lambda ,(map (lambda (x) (first x)) variables) ,@(rest a-syntax))
             ,@(map (lambda (x) (second x)) variables)))))
      
 (define (tronlang-if a-syntax)
@@ -225,13 +212,17 @@
        (case name
          [(not)
           (display "!(")
-          (tronlang-single body)
+          (tronlang-single (first body))
+          (display ")")]
+         [(typeof)
+          (display "typeof(")
+          (tronlang-single (first body))
           (display ")")]
          [(+ -)
           (display "(")
           (display name)
           (display "(")
-          (tronlang-single body)
+          (tronlang-single (first body))
           (display "))")]
          [else
           (error "Wrong unary syntax")])]
@@ -239,7 +230,8 @@
        (display "(")
        (case name
          [(not) (error "#<not> is unary operator")]
-         [(+ - * / % < > <= >= << >> == !=)
+         [(typeof) (error "#<typeof> is unary operator")]
+         [(+ - * / % < > <= >= << >> == != instanceof)
           (iter body name)]
          [(or)      (iter body "||")]
          [(and)     (iter body "&&")]
@@ -288,11 +280,11 @@
         (tronlang-single (first a-syntax))
         (display ")"))))
 
-(define (tronlang-alias a-syntax)
+(define (tronlang-defalias a-syntax)
   (if (or (not (= 2 (length a-syntax)))
           (not (symbol? (first a-syntax)))
           (not (symbol? (second a-syntax))))
-      (error "#<alias> is wrong")
+      (error "#<defalias> is wrong")
       (begin
         (tronlang-set-alias (first a-syntax) (second a-syntax)))))
 
@@ -313,6 +305,28 @@
   (define (iter a-list)
     (cond
       ((empty? a-list) (void))
+      ((list? (first a-list))
+       (cond
+         ((equal? 'defn (first (first a-list)))
+          (letrec ((form (first a-list))
+                   (name (second form))
+                   (body (rest (rest form))))
+            (unless (symbol? name)
+               (error "#<object-defn>: bad syntax"))
+            (tronlang-single name)
+            (display ":")
+            (tronlang-lambda body)))
+         ((equal? 'defvar (first (first a-list)))
+          (letrec ((form (first a-list))
+                   (name (if (= 3 (length form)) (second form) (error "#<object-defvar>: bad syntax")))
+                   (body (third form)))
+            (unless (symbol? name)
+              (error "#<object-defvar>: bad syntax"))
+            (tronlang-single name)
+            (display ":")
+            (tronlang-single body)))
+         (else
+          (error "#<object>: bad syntax"))))
       ((= (modulo (length a-list) 2) 1)
        (error "#<object>: object is key-value pair construct"))
       ((if (keyword? (first a-list))
@@ -335,11 +349,11 @@
       (error "#<js-code> is wrong")
       (display (first a-syntax))))
 
-(define (tronlang-var a-syntax value?)
+(define (tronlang-defvar a-syntax value?)
   (if (or (< (length a-syntax) 1)
           (> (length a-syntax) 2)
           (not (symbol? (first a-syntax))))
-      (error "#<var> is wrong")
+      (error "#<defvar> is wrong")
       (begin
         (display "var ")
         (tronlang-single (first a-syntax))
@@ -349,31 +363,19 @@
           (tronlang-single (second a-syntax))))))
 
 (define (tronlang-new a-syntax)
-  (if (or (< (length a-syntax) 1)
-          (> (length a-syntax) 2)
-          (and (= (length a-syntax) 2)
-               (not (list? (second a-syntax)))))
+  (if (< (length a-syntax) 1)
       (error "#<new> is wrong")
       (begin
         (display "new ")
         (tronlang-single (first a-syntax))
-        (when (= 2 (length a-syntax))
-          (tronlang-argv #f (second a-syntax))))))
+        (tronlang-argv #f (rest a-syntax)))))
 
 (define (tronlang-quote a-syntax)
   (cond
     [(symbol? a-syntax)
-     (display "(new TronSymbol(\"")
-     (display a-syntax)
-     (display "\",\"")
-     (display a-syntax)
-     (display "\"))")]
+     (tronlang-new `(%tron-symbol ,(symbol->string a-syntax)))]
     [(keyword? a-syntax)
-     (display "(new TronKeyword(\"")
-     (display (keyword->string a-syntax))
-     (display "\",\"")
-     (display a-syntax)
-     (display "\"))")]
+     (tronlang-new `(%tron-keyword ,(keyword->string a-syntax)))]
     [(list? a-syntax)
      (display "[")
      (letrec
@@ -393,17 +395,9 @@
 (define (tronlang-quasiquote a-syntax)
   (cond
     [(symbol? a-syntax)
-     (display "(new TronSymbol(\"")
-     (display a-syntax)
-     (display "\",\"")
-     (display a-syntax)
-     (display "\"))")]
+     (tronlang-new `(%tron-symbol ,(symbol->string a-syntax)))]
     [(keyword? a-syntax)
-     (display "(new TronKeyword(\"")
-     (display (keyword->string a-syntax))
-     (display "\",\"")
-     (display a-syntax)
-     (display "\"))")]
+     (tronlang-new `(%tron-keyword ,(keyword->string a-syntax)))]
     [(list? a-syntax)
      (cond
        [(equal? 'unquote (first a-syntax))
@@ -431,7 +425,7 @@
     [else
      (tronlang-single a-syntax)]))
 
-(define (tronlang-promise a-syntax)
+(define (tronlang-pipe a-syntax)
   (define (iter a-list)
     (if (empty? a-list)
         (void)
@@ -439,7 +433,7 @@
           (when (or (not (list? current))
                     (< (length current 2))
                     (not (list? (second current))))
-            (error "#<promise>: bad syntax"))
+            (error "#<pipe>: bad syntax"))
           (case (first current)
             [(then catch)
              (display ".")
@@ -450,34 +444,52 @@
              (display ")")
              (iter (rest a-list))]
             [else
-             (error "#<promise>: bad syntax")]))))
+             (error "#<pipe>: bad syntax")]))))
   (when (< (length a-syntax) 2)
-    (error "#<promise>: bad syntax"))
+    (error "#<pipe>: bad syntax"))
   (display "(")
   (tronlang-single (first a-syntax))
   (display ")")
   (iter (rest a-syntax)))
 
-(define (tronlang-class a-syntax)
-  (error "#<class> is reverse"))
+(define (tronlang-deftype a-syntax)
+  (tronlang-defn a-syntax))
+
+(define (tronlang-while a-syntax)
+  (let ([result-variable (symbol->string (gensym "__r"))])
+    (display "(function() { var ")
+    (display result-variable)
+    (display "; while (")
+    (tronlang (first a-syntax))
+    (display ") ")
+    (display result-variable)
+    (display " = ")
+    (tronlang-body (rest a-syntax))
+    (display "; return ")
+    (display result-variable)
+    (display ";})()")))
 
 (define (tronlang-list a-syntax)
   (let ((first-syntax (first a-syntax)))
     (case first-syntax
-      ((def)
-       (tronlang-def (rest a-syntax)))
-      ((func)
-       (tronlang-func (rest a-syntax)))
+      ((defn)
+       (tronlang-defn (rest a-syntax)))
+      ((lambda)
+       (tronlang-lambda (rest a-syntax)))
       ((let)
        (tronlang-let (rest a-syntax)))
       ((if)
        (tronlang-if (rest a-syntax)))
       ((+ - * / % < > <= >= << >> == !=)
        (tronlang-operator a-syntax))
-      ((and or not bit-and bit-or bit-xor)
+      ((and or not typeof bit-and bit-or bit-xor instanceof)
        (tronlang-operator a-syntax))
-      ((var)
-       (tronlang-var (rest a-syntax) #t))
+      ((defvar)
+       (tronlang-defvar (rest a-syntax) #t))
+      ((defconst)
+       (tronlang-defvar (rest a-syntax) #t))
+      ((while)
+       (tronlang-while (rest a-syntax)))
       ((new)
        (tronlang-new (rest a-syntax)))
       ((set!)
@@ -494,14 +506,12 @@
        (tronlang-array (rest a-syntax)))
       ((object!)
        (tronlang-object (rest a-syntax)))
-      ((promise!)
-       (tronlang-promise (rest a-syntax)))
+      ((pipe)
+       (tronlang-pipe (rest a-syntax)))
       ;((alias!)
       ; (tronlang-alias (rest a-syntax)))
-      ((this)
-       (tronlang-indexor (cons 'js:this (rest a-syntax))))
-      ((class)
-       (tronlang-class (rest a-syntax)))
+      ((deftype)
+       (tronlang-deftype (rest a-syntax)))
       ((quote)
        (if (= (length a-syntax) 2)
            (tronlang-quote (second a-syntax))
@@ -535,11 +545,11 @@
      (print a-syntax)]
     [(symbol? a-syntax)
      (case a-syntax
-       [(def let func if else var set! get!
+       [(def let lambda if else var set! get!
          promise! call class array! object!
          quote quasiquote unquote unquote-splicing
-         progn and or not
-         bit-and bit-xor bit-or js-code! this
+         progn and or not typeof
+         bit-and bit-xor bit-or js-code!
          + - * / % < > <= >= << >> == !=)
         (error (string-append (symbol->string a-syntax) " is #<specform> keyword"))]
        [else
@@ -579,7 +589,7 @@
 
 (define tronlang-macros (make-hash))
 
-(define (tronlang-set-macro name proc)
+(define (tronlang-set-macro! name proc)
   (hash-set! tronlang-macros name proc))
 
 (define (tronlang-get-macro name)
@@ -594,23 +604,31 @@
   (when (or (empty? a-syntax)
             (not (symbol? (first a-syntax))))
       (error "#<define-macro>: name of macro is not valid"))
-  (eval `(tronlang-set-macro ',(first a-syntax)
-                             (lambda ,(second a-syntax) ,@(rest (rest a-syntax)))))
+  (eval `(tronlang-set-macro! ',(first a-syntax)
+                              (lambda ,(second a-syntax) ,@(rest (rest a-syntax))))
+        namespace)
   '(void))
 
 (define tronlang-import-paths '())
 
 (define (tronlang-import file-name)
-  (unless (file-exists? file-name)
-    (error "File not found"))
-  (with-input-from-file file-name
+  (define file-path (make-parameter #f))
+  (for ((parent-path tronlang-import-paths)
+        #:unless (file-path))
+    (let ((test-file-path (build-path parent-path file-name)))
+      (when (file-exists? test-file-path)
+        (file-path test-file-path))))
+  (unless (file-path)
+    (error (string-append "Cannot import file: " file-name ". Are you missing import path?")))
+  
+  (with-input-from-file (file-path)
     (lambda ()
       (define (iter)
         (let ((buffer (read)))
           (if (eof-object? buffer)
               (void)
               (begin
-                (tronlang buffer)
+                (tronlang buffer )
                 (display ";\n")
                 (iter)))))
       (iter))))
@@ -633,13 +651,21 @@
          ((equal? 'defmacro (first a-syntax))
           (if top?
               (tronlang-define-macro (rest a-syntax))
-              (error "#<define-macro>: must be at top-level")))
+              (error "#<defmacro>: must be at top-level")))
          ((tronlang-has-macro? (first a-syntax))
-          (apply (tronlang-get-macro (first a-syntax))
-                 (rest a-syntax)))
+          (analyze (apply (tronlang-get-macro (first a-syntax))
+                          (rest a-syntax))
+                   #f))
          (else
           (map (lambda (x) (analyze x #f)) a-syntax)))]))
   (analyze syntaxes #t))
 
-(define (tronlang syntaxes)
-  (tronlang-single (tronlang-analyze syntaxes)))
+(define (tronlang syntaxes #:file-path [file-path #f] #:import-paths [import-paths #f])
+  (let ((old-import-paths tronlang-import-paths))
+    (when import-paths
+      (set! tronlang-import-paths
+            (if file-path
+                (append (list (path->directory-path file-path)) import-paths)
+                import-paths)))
+    (tronlang-single (tronlang-analyze syntaxes))
+    (set! tronlang-import-paths old-import-paths)))

@@ -1,15 +1,17 @@
 (js-code! "const http = require('http');")
 
 (defn http-server (callback)
-  (http.createServer callback))
+   (http.createServer callback))
 
+(let 
+   ([server 
+      (http-server
+         (lambda (req res)
+            (res.end)))])
 
-(let ((server (http-server
-               (lambda (req res)
-                 (res.end)))))
-  (server.on
-   "clientError"
-   (lambda (err socket)
-     (socket.end "HTTP/1.1 400 Bad Request\n\r\n")))
+   (server.on
+      "clientError"
+      (lambda (err socket)
+         (socket.end "HTTP/1.1 400 Bad Request\n\r\n")))
   
-  (server.listen 8000))
+   (server.listen 8000))

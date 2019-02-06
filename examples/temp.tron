@@ -1,47 +1,42 @@
 (defn print (x)
-  (console.log x)
+   (console/log x)
 )
 
-(defn object? (x)
-  (== (typeof x) "object")
+(deftype Point (x y)
+   (set! this/x x)
+   (set! this/y y)
 )
 
-(deftype %point (x y)
-  (set! this.x x)
-  (set! this.y y)
+(set! Point/prototype
+   (object!
+      (defn to-string ()
+         (+ "point(" this/x ", " this/y ")")
+      )
+   )
 )
 
-(set! %point.prototype
-  (object!
-    (defn to-string ()
-      (+ "point(" this.x ", " this.y ")")
-    )
-  )
-)
-
-(let ((p (new %point 1 2)))
-  (print p)
+(let ((p (new Point 1 2)))
+   (print p)
   
-  (if 
-    ((object? p)
+   (when (object? p)
       (print "This is an object")
-    )
-  )
+   )
   
-  (console.log (p.to-string)))
+   (console/log (p/to-string))
+)
 
 (let ([loop-count 100])
-  (while (> loop-count 0)
-    (console.log (+ "loop-count: " loop-count))
+   (while (> loop-count 0)
+      (console/log (+ "loop-count: " loop-count))
 
-    (set! loop-count (- loop-count 1))
-  )
+      (set! loop-count (- loop-count 1))
+   )
 )
 
 (for 
-  ([for-loop-count 10])
-  (> loop-count 0)
-  (set! for-loop-count (- for-loop-count 1))
+   ([for-loop-count 10])
+   (> for-loop-count 0)
+   (set! for-loop-count (- for-loop-count 1))
   
-  (console.log (+ "for-loop-count: " for-loop-count))
+   (console/log (+ "for-loop-count: " for-loop-count))
 )

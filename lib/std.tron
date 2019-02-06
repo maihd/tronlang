@@ -2,91 +2,124 @@
 ;; Tronlang Standard library
 ;;
 
-(deftype %tron-symbol (value)
-  (set! this.value value)
+(deftype TronChar [value]
+   (set! this/value value)
 )
 
-(deftype %tron-keyword (value)
-  (set! this.value value)
+(deftype TronSymbol [value]
+   (set! this/value value)
 )
 
-(defn null? (x)
-  (or (== "null" (typeof x)) (== "undefined" (typeof x)))
+(deftype TronKeyword [value]
+   (set! this/value value)
 )
 
-(defn number? (x)
-  (== "number" (typeof x))
+(deftype TronComplex [real imag]
+   (set! this/real real)
+   (set! this/imag imag)
 )
 
-(defn string? (x)
-  (== "string" (typeof x))
+(defn null? [x]
+   (or (== "null" (typeof x)) (== "undefined" (typeof x)))
 )
 
-(defn symbol? (x)
-  (instanceof x %tron-symbol)
+(defn empty? [x]
+   (or (not x/length) (<= x/length 0))
 )
 
-(defn keyword? (x)
-  (instanceof x %tron-keyword)
+(defn char? [x]
+   (instanceof x TronChar)
 )
 
-(defn string->symbol (x)
-  (new %tron-symbol x)
+(defn number? [x]
+   (== "number" (typeof x))
 )
 
-(defn string->keyword (x)
-  (new %tron-keyword x)
+(defn object? (x)
+   (== (typeof x) "object")
 )
 
-(defn symbol->string (x)
-  (new %tron-symbol x)
+(defn string? [x]
+   (== "string" (typeof x))
 )
 
-(defn keyword->string (x)
-  (new %tron-keyword x)
+(defn symbol? [x]
+   (instanceof x TronSymbol)
+)
+
+(defn keyword? [x]
+   (instanceof x TronKeyword)
+)
+
+(defn string->symbol [x]
+   (new TronSymbol x)
+)
+
+(defn string->keyword [x]
+   (new TronKeyword x)
+)
+
+(defn symbol->string [x]
+   x/value
+)
+
+(defn keyword->string [x]
+   x/value
 )
 
 ;;
 ;; Standard macro
 ;;
 
-(defmacro when (condition . body)
-  `(if 
-    ((not ,condition) ,@body)
-  )
+(defmacro cond [(first-clause #false) . clauses]
+   (cond
+      [(not first-clause) #f]
+      [(empty? clauses) first-clause]
+      [else
+         (let ([var (gensym)])
+            `(let ([,var ,first-clause])
+               (if ,var ,var (or ,clauses))
+            )
+         )
+      ]   
+   )
 )
 
-(defmacro unless (condition . body)
-  `(if 
-    ((not ,condition) ,@body)
-  )
+(defmacro when [condition . body]
+   `(if ,condition (progn ,@body) #false)
 )
 
-(defmacro for (init condition increment . body)
-  (let ((result-variable (gensym "__r")))
-    `(let ,(append init (list (list result-variable #f)))
-      (while ,condition 
-        (set! ,result-variable (progn ,@body))
-        ,increment
-        ,result-variable
+(defmacro unless [condition . body]
+   `(if (not ,condition) (progn ,@body) #false)
+)
+
+(defmacro for [init condition increment . body]
+   (let ((result-variable (gensym "__r")))
+      `(let ,(append init (list (list result-variable #f)))
+         (while ,condition 
+         (set! ,result-variable (progn ,@body))
+         ,increment
+         ,result-variable
+         )
       )
-    )
-  )
+   )
 )
 
 ;;
 ;; Node module support
 ;;
 
-(if 
-  [(== "undefined" (typeof module))
-    (set! window.module (object!))
-    (set! window.module.export (object!))
-  ]
+(when (== "undefined" (typeof module))
+   (set! window.module (object!))
+   (set! window.module.export (object!))
 )
 
-(defmacro export (name body)
-  (unless (symbol? name)
-    (error "export name must be a symbol"))
-  `(set! (get! module ,(string->keyword (symbol->string name)))
-     ,body))
+(defmacro export [name body]
+   (unless (symbol? name)
+      (error "export name must be a symbol")
+   )
+
+   `(set! (get! module ,(string->keyword (symbol->string name)))
+      ,body
+   )
+)

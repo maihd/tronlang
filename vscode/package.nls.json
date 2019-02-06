@@ -1,4 +1,4 @@
 {
-	"displayName": "Mai Language Basics",
-	"description": "Provides syntax highlighting and bracket matching in Mai files."
+	"displayName": "Tron Language Basics",
+	"description": "Provides syntax highlighting and bracket matching in TronLang (.tron, .tronlang) files."
 }

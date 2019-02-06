@@ -5,6 +5,10 @@
 (define-namespace-anchor namespace-anchor)
 (define namespace (namespace-anchor->namespace namespace-anchor))
 
+(define output-port (current-output-port))
+(define (tronlang/debug/print x)
+  (display x output-port))
+
 (define tronlang-alias-list (make-hash))
 
 (define (tronlang-set-alias name value)
@@ -20,7 +24,6 @@
     [(#\-) "$00$"]
     [(#\+) "$01$"]
     [(#\*) "$02$"]
-    [(#\/) "$03$"]
     [(#\?) "$04$"]
     [(#\\) "$05$"]
     [(#\:) "$06$"]
@@ -34,14 +37,16 @@
     [(#\#) "$14$"]
     [(#\^) "$15$"]
     [(#\%) "$16$"]
+    [(#\.) "$17$"]
+    [(#\/) "."] ;; path name (example/field) convert to member operator
     [else (string c)]))
 
 (define (tronlang-naming-convert a-name)
   (case a-name
-    (("class")
-     ("$trolang_class"))
-    (else
-     (apply string-append (map tronlang-naming-char-convert (string->list a-name))))))
+    [("class")
+     ("$trolang_class")]
+    [else
+     (apply string-append (map tronlang-naming-char-convert (string->list a-name)))]))
 
 (define (tronlang-symbol->js-symbol a-symbol)
   (tronlang-naming-convert (symbol->string a-symbol)))
@@ -159,37 +164,50 @@
      `(call (lambda ,(map (lambda (x) (first x)) variables) ,@(rest a-syntax))
             ,@(map (lambda (x) (second x)) variables)))))
      
+;(define (tronlang-if a-syntax)
+;  (define (iter a-list first? else?)
+;    (if (empty? a-list)
+;        (unless else?
+;          (display "(null)"))
+;        (let ((current (first a-list)))
+;          (if (or (not (list? current))
+;                  (empty? current))
+;              (error "#<if> is wrong syntax")
+;              (let ((first-syntax (first current)))
+;                (if (equal? first-syntax 'else)
+;                    (if else?
+;                        (error "#<if>: else is presented")
+;                        (begin
+;                          (when first?
+;                            (error "#<if>: else cannot be first"))
+;                          (tronlang-body (rest current))
+;                          (iter (rest a-list) #f #t)))
+;                    (begin
+;                      (display "(")
+;                      (tronlang-single first-syntax)
+;                      (display ")?")
+;                      (tronlang-body (rest current))
+;                      (display ":")
+;                      (iter (rest a-list) #f else?))))))))
+;  (if (or (not (list? a-syntax))
+;          (empty? a-syntax))
+;      (error "#<if> is wrong syntax")
+;      (begin
+;        (display "(")
+;        (iter a-syntax #t #f)
+;        (display ")"))))
+
 (define (tronlang-if a-syntax)
-  (define (iter a-list first? else?)
-    (if (empty? a-list)
-        (unless else?
-          (display "(null)"))
-        (let ((current (first a-list)))
-          (if (or (not (list? current))
-                  (empty? current))
-              (error "#<if> is wrong syntax")
-              (let ((first-syntax (first current)))
-                (if (equal? first-syntax 'else)
-                    (if else?
-                        (error "#<if>: else is presented")
-                        (begin
-                          (when first?
-                            (error "#<if>: else cannot be first"))
-                          (tronlang-body (rest current))
-                          (iter (rest a-list) #f #t)))
-                    (begin
-                      (display "(")
-                      (tronlang-single first-syntax)
-                      (display ")?")
-                      (tronlang-body (rest current))
-                      (display ":")
-                      (iter (rest a-list) #f else?))))))))
   (if (or (not (list? a-syntax))
-          (empty? a-syntax))
+          (not (= 3 (length a-syntax))))
       (error "#<if> is wrong syntax")
       (begin
         (display "(")
-        (iter a-syntax #t #f)
+        (tronlang (first a-syntax))
+        (display "?")
+        (tronlang (second a-syntax))
+        (display ":")
+        (tronlang (third a-syntax))
         (display ")"))))
 
 (define (tronlang-operator a-syntax)
@@ -372,9 +390,9 @@
 (define (tronlang-quote a-syntax)
   (cond
     [(symbol? a-syntax)
-     (tronlang-new `(%tron-symbol ,(symbol->string a-syntax)))]
+     (tronlang-new `(TronSymbol ,(symbol->string a-syntax)))]
     [(keyword? a-syntax)
-     (tronlang-new `(%tron-keyword ,(keyword->string a-syntax)))]
+     (tronlang-new `(TronKeyword ,(keyword->string a-syntax)))]
     [(list? a-syntax)
      (display "[")
      (letrec
