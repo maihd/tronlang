@@ -74,11 +74,11 @@
 		"constants": {
 			"patterns": [
 				{
-					"match": "(nil)(?=(\\s|\\)|\\]|\\}))",
-					"name": "constant.language.nil.tronlang"
+					"match": "(#null)(?=(\\s|\\)|\\]|\\}))",
+					"name": "constant.language.null.tronlang"
 				},
 				{
-					"match": "(true|false)",
+					"match": "(#true|#false)(?=(\\s|\\)|\\]|\\}))",
 					"name": "constant.language.boolean.tronlang"
 				},
 				{
@@ -125,11 +125,15 @@
 		"keyfn": {
 			"patterns": [
 				{
-					"match": "(?<=(\\s|\\(|\\[|\\{))(if(-[-a-z\\?]*)?|when(-[-a-z]*)?|while(-[-a-z]*)?|cond|progn|pipe|js-code!|let(-[-a-z\\?]*)?|binding|typeof|instanceof|set!|export|import|new|object!|array!|get!|([a-z]*case))(?=(\\s|\\)|\\]|\\}))",
+					"match": "(?<=(\\s|\\(|\\[|\\{))(if|when|while|for|cond|progn|pipe|js-code!|let|typeof|instanceof|set!|export|import|new|object!|array!|get!|case)(?=(\\s|\\)|\\]|\\}))",
 					"name": "storage.control.tronlang"
 				},
 				{
-					"match": "(?<=(\\s|\\(|\\[|\\{))(\\+|\\-|\\*|\\/|\\%|\\<\\<|\\>\\>|\\!\\=|\\=\\=|and|or|not|bit-and|bit-or|bit-xor)(?=(\\s|\\)|\\]|\\}))",
+					"match": "(?<=(\\s|\\(|\\[|\\{))(\\+|\\-|\\*|\\/|\\%|\\<\\<|\\>\\>|\\!\\=|\\=\\=|\\<|\\>|\\<\\=|\\>\\=|and|or|not|bit-and|bit-or|bit-xor)(?=(\\s|\\)|\\]|\\}))",
+					"name": "storage.control.tronlang"
+				},
+				{
+					"match": "(?<=(\\s|\\(|\\[|\\{))(this)(?<=(\\/))",
 					"name": "storage.control.tronlang"
 				}
 			]

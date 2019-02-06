@@ -26,7 +26,7 @@
 )
 
 (let ([loop-count 100])
-   (while (> loop-count 0)
+   (while (< loop-count 0)
       (console/log (+ "loop-count: " loop-count))
 
       (set! loop-count (- loop-count 1))
